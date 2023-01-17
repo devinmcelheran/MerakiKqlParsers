@@ -1,0 +1,35 @@
+let MerakiFirewallDecisions = (
+    meraki_CL
+    | where TimeGenerated between (StartTime .. EndTime)
+    | project TimeGenerated, Message
+);
+union hint.spread=2 //Firewall
+//Firewall actions with reason (pattern)
+( 
+    MerakiFirewallDecisions
+    | where Message has "flows" and Message has "pattern:"
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "flows",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = case(Message has "deny", "Deny", "Allow")
+    | parse-kv  Message as (src:string, dst:string, mac:string, protocol:string, sport:string, dport:string) with (pair_delimiter=" ", kv_delimiter="=")
+    | extend    Pattern = tostring(split(Message, ":")[-1])
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, SourceIP = src, SourcePort = sport,
+                DestinationIP = dst, DestinationPort = dport, MacAddress = mac, Protocol = protocol, Pattern, Message
+)
+,//Firewall actions without reason (pattern missing)
+(
+    MerakiFirewallDecisions
+    | where     Message has "flows" and Message notcontains "pattern:"
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "flows",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = case(Message has "deny", "Deny", "Allow")
+    | parse-kv  Message as (src:string, dst:string, mac:string, protocol:string, sport:string, dport:string) with (pair_delimiter=" ", kv_delimiter="=")
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, SourceIP = src, SourcePort = sport,
+                DestinationIP = dst, DestinationPort = dport, MacAddress = mac, Protocol = protocol, Message
+)

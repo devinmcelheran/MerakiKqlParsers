@@ -1,0 +1,36 @@
+let MerakiNatEvents = materialize (
+    meraki_CL
+    | where TimeGenerated between (StartTime .. EndTime)
+    | project TimeGenerated, Message
+);
+union hint.spread=2 (
+    MerakiNatEvents
+    | where     Message has " ip_flow_start "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = tostring(split(Message, " ")[3]),
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = case(Message has "deny", "NAT Denied", "NAT Session Initiated")
+    | parse-kv  Message as (src:string, dst:string, mac:string, protocol:string, sport:string,
+                dport:string, translated_dst_ip:string, translated_port:string)
+                with (pair_delimiter=" ", kv_delimiter="=")
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, SourceIP = src, SourcePort = sport,
+                DestinationIP = dst, DestinationPort = dport, MacAddress = mac, Protocol = protocol,
+                TranslatedDestinationIP = translated_dst_ip, TranslatedPort = translated_port
+),(
+    MerakiNatEvents
+    | where     Message has " ip_flow_end "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = tostring(split(Message, " ")[3]),
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = "NAT Session Ended"
+    | parse-kv  Message as (src:string, dst:string, mac:string, protocol:string, sport:string,
+                dport:string, translated_dst_ip:string, translated_port:string)
+                with (pair_delimiter=" ", kv_delimiter="=")
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, SourceIP = src, SourcePort = sport,
+                DestinationIP = dst, DestinationPort = dport, MacAddress = mac, Protocol = protocol,
+                TranslatedDestinationIP = translated_dst_ip, TranslatedPort = translated_port
+)

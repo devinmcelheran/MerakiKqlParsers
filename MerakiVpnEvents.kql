@@ -1,0 +1,31 @@
+let MerakiClientVpnEvents = materialize (
+    meraki_CL
+    | where TimeGenerated between (StartTime .. EndTime)
+    | project TimeGenerated, Message
+);
+union hint.spread=2
+(
+    MerakiClientVpnEvents
+    | where     Message has " events Client" and Message has "client_vpn_connect"
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "events_clientstatus",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = "Network Client Connected"
+    | parse     Message with * "connect " LogMessage
+    | parse     LogMessage with "user id '" UserId "' local ip " AssignedIP " connected from " RemoteIP
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, UserId, AssignedIP, RemoteIP, LogMessage
+),(
+    MerakiClientVpnEvents
+    | where     Message has " events Client" and Message has "client_vpn_disconnect"
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "events_clientstatus",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = "Network Client Disconnected"
+    | parse     Message with * "connect " LogMessage
+    | parse     LogMessage with "user id '" UserId "' local ip " AssignedIP " connected from " RemoteIP
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, UserId, AssignedIP, RemoteIP, LogMessage
+)

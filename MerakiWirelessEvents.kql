@@ -1,0 +1,182 @@
+let MerakiLogs = materialize (
+    meraki_CL
+    | where TimeGenerated between (StartTime .. EndTime)
+    | project TimeGenerated, Message
+);
+union hint.spread=11
+(
+    MerakiLogs
+    | where Message has " type=wpa_auth "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "WPA Authentication"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=dfs_event "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "DFS Event Detected"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=association "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "802.11 Client Association"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=l3roaming_lost_anchor "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "Client Anchor AP Became Unresponsive"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=l3roaming_start_set_anchor "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "Sent Anchor Request to Anchor AP"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=aps_association_reject "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "802.11 Association Rejected for Client Balancing"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=l3roaming_assign_hosting "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "Received Anchor Request; Reply Sent"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=l3roaming_set_anchor_done "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "Received SetAnchor Reply or Timed Out"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=l3roaming_assign_anchor "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "Anchor AP Assigned to Client"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=wpa_deauth "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "WPA Deauthentication"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),
+(
+    MerakiLogs
+    | where Message has " type=disassociation "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "event_wireless",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2])
+    | extend    Event = "802.11 Client Disassociation"
+    | parse     Message with  * "events type=" * " " LogMessage
+    | extend    kvpairs = parse_json(extract_all(@"([^\d\s]+)='([^']+)'", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+)

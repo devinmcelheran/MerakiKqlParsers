@@ -1,0 +1,46 @@
+let MerakiIPConflicts = materialize (
+    meraki_CL
+    | where TimeGenerated between (StartTime .. EndTime)
+    | project TimeGenerated, Message
+);
+union hint.spread=3
+(
+    MerakiIPConflicts
+    | where Message has " type=ip_conflict "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "events_ipconflict",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                eventInformer = tostring(split(split(Message, " ")[4], "=")[1])
+    | extend    Event = "Client IP Conflict"
+    | parse-kv Message as (Client:string, MAC:string, VLAN:string, details:string, summary:string) with (pair_delimiter=" ", kv_delimiter="=", quote="'")
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, SourceIP = Client, MacAddress = MAC, VLAN, LogMessage = coalesce(details, summary), Message
+),(
+    MerakiIPConflicts
+    | where Message has " type=martian_vlan "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "events_ipconflict",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                eventInformer = tostring(split(split(Message, " ")[4], "=")[1])
+    | extend    Event = "Internet Martian"
+    | parse-kv Message as (Client:string, MAC:string, VLAN:string, details:string, summary:string) with (pair_delimiter=" ", kv_delimiter="=", quote="'")
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, SourceIP = Client, MacAddress = MAC, VLAN, LogMessage = coalesce(details, summary), Message
+),(
+    MerakiIPConflicts
+    | where Message has " type=martian_src "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "events_ipconflict",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                eventInformer = tostring(split(split(Message, " ")[4], "=")[1])
+    | extend    Event = "Source IP and/or VLAN Mismatch"
+    | parse-kv Message as (Client:string, MAC:string, VLAN:string, details:string, summary:string) with (pair_delimiter=" ", kv_delimiter="=", quote="'")
+    | project   TimeGenerated, LogType, DeviceIP, DeviceName, Event, SourceIP = Client, MacAddress = MAC, VLAN, LogMessage = coalesce(details, summary), Message
+)
+
+meraki_CL
+| where TimeGenerated == todatetime('2022-11-09T14:04:05.698816Z')

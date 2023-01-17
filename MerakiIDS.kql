@@ -1,0 +1,60 @@
+let MerakiSecurityEvents = materialize (
+    meraki_CL
+    | where TimeGenerated between (StartTime .. EndTime)
+    | project TimeGenerated, Message
+    );
+union
+(
+    MerakiSecurityEvents
+    | where Message has " security_event "
+    | project TimeGenerated, Message
+    | where Message has " ids_alerted "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "security_event",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = "IDS Signature Match"
+    | extend    kvpairs = parse_json(extract_all("([^\\d\\s]+)=(\\S+)" "\\s", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+    | project   TimeGenerated, LogType, Event, DeviceIP, DeviceName, 
+                Signature = column_ifexists("signature", ""), Action = column_ifexists("action", ""),
+                Decision = column_ifexists("decision", ""),
+                DestinationIP = tostring(split(column_ifexists("dst", ""), ":")[0]),
+                DestinationPort = tostring(split(column_ifexists("dst", ""), ":")[1]),
+                Priority = column_ifexists("priority", ""),
+                Protocol = column_ifexists("protocol", ""),
+                SourceIP = tostring(split(column_ifexists("src", ""), ":")[0]),
+                SourcePort = tostring(split(column_ifexists("src", ""), ":")[0])
+),(
+    MerakiSecurityEvents
+    | where Message has " security_filtering_file_scanned "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "security_event",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = "IDS File Match"
+    | extend    kvpairs = parse_json(extract_all("([^\\d\\s]+)=(\\S+)" "\\s", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+),(
+    MerakiSecurityEvents
+    | where Message has " security_filtering_disposition_change "
+    | extend    Message = substring(Message, 16)
+    | extend    LogType = "security_event",
+                TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+                DeviceIP = tostring(split(Message, " ")[0]),
+                DeviceName = tostring(split(Message, " ")[2]),
+                Event = "IDS Disposition Change"
+    | extend    kvpairs = parse_json(extract_all("([^\\d\\s]+)=(\\S+)" "\\s", dynamic([1,2]), Message))
+    | mv-apply  kvpairs on (
+                        summarize make_bag(pack(tostring(replace('-', '', tostring(kvpairs[0]))), kvpairs[1]))
+                    )
+    | evaluate  bag_unpack(bag_)
+)

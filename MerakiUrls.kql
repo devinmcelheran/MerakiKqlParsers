@@ -1,0 +1,16 @@
+let MerakiContentFiltering = (
+    meraki_CL
+    | where TimeGenerated between (StartTime .. EndTime)
+    | project TimeGenerated, Message
+);
+MerakiContentFiltering
+| where     Message has " urls "
+| extend    Message = substring(Message, 16)
+| extend    LogType = "urls",
+            TimeGenerated = unixtime_seconds_todatetime(toreal(split(Message, " ")[1])),
+            DeviceIP = tostring(split(Message, " ")[0]),
+            DeviceName = tostring(split(Message, " ")[2])
+| parse-kv  Message as (src:string, dst:string, mac:string, agent:string) with (pair_delimiter=" ", kv_delimiter="=")
+| extend    agent = trim("'", agent)
+| parse     Message with * "request: " Pattern
+| project   TimeGenerated, LogType, DeviceIP, DeviceName, SourceIP = src, DestinationIP = dst, MacAddress = mac, Agent = agent, Pattern
